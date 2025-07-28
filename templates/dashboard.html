@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Multi-Agent Task Bot</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🤖 Autonomous Multi-Agent Task Bot</h1>
+            <p class="subtitle">Powered by CrewAI, LangChain, and OpenAI</p>
+        </header>
+
+        <div class="main-content">
+            <!-- Task Input Section -->
+            <section class="task-section">
+                <h2>📝 Submit New Task</h2>
+                <form method="POST" class="task-form">
+                    <div class="form-group">
+                        <label for="task_prompt">Task Description:</label>
+                        <textarea 
+                            id="task_prompt" 
+                            name="task_prompt" 
+                            placeholder="Describe your task here... (e.g., 'Research the latest trends in AI and create a comprehensive report')"
+                            required
+                        ></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="task_type">Task Type:</label>
+                        <select id="task_type" name="task_type">
+                            <option value="general">General Task</option>
+                            <option value="research">Research</option>
+                            <option value="analysis">Business Analysis</option>
+                            <option value="planning">Strategic Planning</option>
+                            <option value="report">Report Generation</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">
+                        <span class="btn-icon">🚀</span>
+                        Execute Task
+                    </button>
+                </form>
+            </section>
+
+            <!-- Results Section -->
+            {% if result %}
+            <section class="results-section">
+                <h2>📊 Task Results</h2>
+                <div class="result-container">
+                    <div class="result-header">
+                        <span class="status-badge success">✅ Completed</span>
+                        {% if task_id %}
+                        <span class="task-id">ID: {{ task_id }}</span>
+                        {% endif %}
+                        <span class="timestamp">{{ timestamp }}</span>
+                    </div>
+                    <div class="result-content" id="result-content">
+                        <!-- Raw result will be processed by JavaScript -->
+                        <pre class="raw-result">{{ result }}</pre>
+                    </div>
+                </div>
+            </section>
+            {% endif %}
+
+            <!-- Task History Section -->
+            <section class="history-section">
+                <h2>📚 Recent Task History</h2>
+                <div class="history-container">
+                    {% if history %}
+                        {% for task in history %}
+                        <div class="history-item">
+                            <div class="history-header">
+                                <span class="history-role">{{ task.role }}</span>
+                                <span class="history-time">{{ task.timestamp }}</span>
+                            </div>
+                            <div class="history-content">{{ task.content }}</div>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="no-history">No recent tasks found.</p>
+                    {% endif %}
+                </div>
+            </section>
+
+            <!-- System Status Section -->
+            <section class="status-section">
+                <h2>🔧 System Status</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">OpenAI API:</span>
+                        <span class="status-value" id="openai-status">Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Memory System:</span>
+                        <span class="status-value" id="memory-status">Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">n8n Integration:</span>
+                        <span class="status-value" id="n8n-status">Checking...</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Process markdown in results
+        function processMarkdown() {
+            const resultContent = document.getElementById('result-content');
+            if (resultContent) {
+                const rawResult = resultContent.querySelector('.raw-result');
+                if (rawResult) {
+                    const markdownText = rawResult.textContent;
+                    
+                    // Configure marked options
+                    marked.setOptions({
+                        breaks: true,
+                        gfm: true,
+                        highlight: function(code, lang) {
+                            if (lang && hljs.getLanguage(lang)) {
+                                try {
+                                    return hljs.highlight(code, { language: lang }).value;
+                                } catch (err) {}
+                            }
+                            return hljs.highlightAuto(code).value;
+                        }
+                    });
+                    
+                    // Convert markdown to HTML
+                    const htmlContent = marked.parse(markdownText);
+                    resultContent.innerHTML = `
+                        <div class="markdown-content">
+                            ${htmlContent}
+                        </div>
+                    `;
+                    
+                    // Apply syntax highlighting
+                    resultContent.querySelectorAll('pre code').forEach((block) => {
+                        hljs.highlightElement(block);
+                    });
+                }
+            }
+        }
+
+        // Check system status
+        async function checkSystemStatus() {
+            try {
+                const response = await fetch('/api/health');
+                const data = await response.json();
+                
+                document.getElementById('openai-status').textContent = 
+                    data.openai_configured ? '✅ Connected' : '❌ Not Configured';
+                document.getElementById('memory-status').textContent = 
+                    data.faiss_configured ? '✅ Active' : '⚠️ Limited';
+                document.getElementById('n8n-status').textContent = 
+                    data.n8n_configured ? '✅ Connected' : '❌ Not Configured';
+            } catch (error) {
+                console.error('Error checking system status:', error);
+            }
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            processMarkdown();
+            checkSystemStatus();
+            
+            // Auto-resize textarea
+            const textarea = document.getElementById('task_prompt');
+            if (textarea) {
+                textarea.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = this.scrollHeight + 'px';
+                });
+            }
+        });
+    </script>
+</body>
+</html>

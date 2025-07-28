@@ -4,6 +4,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from crew_runner import run_task, get_task_history, search_tasks
+from n8n_integration import n8n, get_n8n_status, test_n8n_connection
 import uvicorn
 import os
 import config
@@ -159,6 +160,38 @@ async def get_config():
         "faiss_configured": True,
         "memory_path": config.MEMORY_PATH
     }
+
+@app.get("/api/n8n/status", response_class=JSONResponse)
+async def get_n8n_status_api():
+    """Get n8n integration status"""
+    return get_n8n_status()
+
+@app.post("/api/n8n/test", response_class=JSONResponse)
+async def test_n8n_api():
+    """Test n8n webhook connection"""
+    success = test_n8n_connection()
+    return {
+        "success": success,
+        "message": "n8n connection test completed",
+        "timestamp": datetime.now().isoformat()
+    }
+
+@app.post("/api/n8n/event", response_class=JSONResponse)
+async def send_n8n_event(event_type: str, data: dict):
+    """Send custom event to n8n"""
+    try:
+        from n8n_integration import N8NEventType
+        event_enum = N8NEventType(event_type)
+        success = n8n.send_event(event_enum, data)
+        return {
+            "success": success,
+            "event_type": event_type,
+            "timestamp": datetime.now().isoformat()
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid event type: {event_type}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(

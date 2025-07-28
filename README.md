@@ -98,6 +98,68 @@ A comprehensive AI agent system designed to autonomously complete complex tasks 
    - `OPENAI_API_KEY`: Your OpenAI API key
    - `N8N_WEBHOOK_URL`: Optional n8n webhook URL
 
+## 🔗 n8n Integration
+
+The autonomous task bot includes comprehensive n8n integration for workflow automation and notifications.
+
+### Setup n8n Integration
+
+1. **Run the setup script**
+   ```bash
+   python setup_n8n.py
+   ```
+
+2. **Or manually configure**
+   ```bash
+   # Add to your .env file
+   N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/autonomous-task-bot
+   ```
+
+### n8n Workflow Setup
+
+1. **Create a new n8n workflow**
+2. **Add a Webhook trigger node**
+3. **Configure the webhook URL**
+4. **Add conditional nodes for different event types:**
+   - `task_started`: When a task begins
+   - `task_completed`: When a task finishes successfully
+   - `task_failed`: When a task encounters an error
+   - `agent_progress`: Real-time agent progress updates
+   - `memory_update`: Memory system updates
+   - `system_health`: System health checks
+
+### Sample Workflow
+
+Import the provided `n8n_workflow_example.json` file into your n8n instance for a complete setup with:
+- Slack notifications
+- Email alerts
+- Notion database logging
+- Conditional event handling
+
+### API Endpoints
+
+- `GET /api/n8n/status`: Check n8n integration status
+- `POST /api/n8n/test`: Test n8n webhook connection
+- `POST /api/n8n/event`: Send custom events to n8n
+
+### Event Payload Structure
+
+```json
+{
+  "event_type": "task_completed",
+  "timestamp": "2024-01-01T12:00:00.000Z",
+  "source": "autonomous-task-bot",
+  "version": "1.0.0",
+  "data": {
+    "task_id": "uuid",
+    "task_type": "general",
+    "status": "completed",
+    "result": "Task result content",
+    "execution_time": 120.5
+  }
+}
+```
+
 ## 📋 API Endpoints
 
 ### Web Interface

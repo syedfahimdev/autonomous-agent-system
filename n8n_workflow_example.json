@@ -1,0 +1,273 @@
+{
+  "name": "Autonomous Task Bot Integration",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "webhook",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook Trigger",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [240, 300],
+      "webhookId": "autonomous-task-bot-webhook"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "event-type-check",
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "task_started",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "task-started-filter",
+      "name": "Task Started Filter",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "event-type-check",
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "task_completed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "task-completed-filter",
+      "name": "Task Completed Filter",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 400]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "event-type-check",
+              "leftValue": "={{ $json.event_type }}",
+              "rightValue": "task_failed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "task-failed-filter",
+      "name": "Task Failed Filter",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [460, 500]
+    },
+    {
+      "parameters": {
+        "message": "🚀 Task Started\n\nTask ID: {{ $json.data.task_id }}\nType: {{ $json.data.task_type }}\nPrompt: {{ $json.data.prompt }}\nTimestamp: {{ $json.timestamp }}"
+      },
+      "id": "slack-task-started",
+      "name": "Slack - Task Started",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [680, 200]
+    },
+    {
+      "parameters": {
+        "message": "✅ Task Completed\n\nTask ID: {{ $json.data.task_id }}\nType: {{ $json.data.task_type }}\nExecution Time: {{ $json.data.execution_time }}s\nResult: {{ $json.data.result[:200] }}..."
+      },
+      "id": "slack-task-completed",
+      "name": "Slack - Task Completed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [680, 300]
+    },
+    {
+      "parameters": {
+        "message": "❌ Task Failed\n\nTask ID: {{ $json.data.task_id }}\nType: {{ $json.data.task_type }}\nError: {{ $json.data.error }}"
+      },
+      "id": "slack-task-failed",
+      "name": "Slack - Task Failed",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 1,
+      "position": [680, 400]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "resource": "database",
+        "databaseId": "your-database-id",
+        "table": "task_events",
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "task_id": "={{ $json.data.task_id }}",
+            "event_type": "={{ $json.event_type }}",
+            "task_type": "={{ $json.data.task_type }}",
+            "status": "={{ $json.data.status }}",
+            "timestamp": "={{ $json.timestamp }}",
+            "data": "={{ JSON.stringify($json.data) }}"
+          },
+          "matchingColumns": []
+        }
+      },
+      "id": "notion-database",
+      "name": "Notion - Log Event",
+      "type": "n8n-nodes-base.notion",
+      "typeVersion": 2,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "operation": "sendEmail",
+        "toEmail": "admin@yourcompany.com",
+        "subject": "Autonomous Task Bot - {{ $json.event_type }}",
+        "text": "Event: {{ $json.event_type }}\nTask ID: {{ $json.data.task_id }}\nTimestamp: {{ $json.timestamp }}\n\nData: {{ JSON.stringify($json.data, null, 2) }}"
+      },
+      "id": "email-notification",
+      "name": "Email Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 1,
+      "position": [900, 500]
+    }
+  ],
+  "connections": {
+    "Webhook Trigger": {
+      "main": [
+        [
+          {
+            "node": "Task Started Filter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Task Completed Filter",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Task Failed Filter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task Started Filter": {
+      "main": [
+        [
+          {
+            "node": "Slack - Task Started",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task Completed Filter": {
+      "main": [
+        [
+          {
+            "node": "Slack - Task Completed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Task Failed Filter": {
+      "main": [
+        [
+          {
+            "node": "Slack - Task Failed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack - Task Started": {
+      "main": [
+        [
+          {
+            "node": "Notion - Log Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack - Task Completed": {
+      "main": [
+        [
+          {
+            "node": "Notion - Log Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Slack - Task Failed": {
+      "main": [
+        [
+          {
+            "node": "Notion - Log Event",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Email Notification",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2024-01-01T00:00:00.000Z",
+  "versionId": "1"
+} 

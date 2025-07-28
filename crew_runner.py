@@ -7,32 +7,102 @@ from crewai import Crew, Task
 from agents import researcher, planner, executor, reporter, bi_analyst, qa_specialist
 from memory_manager import MemoryManager
 import config
+import time
 
 # Initialize memory manager
 memory_manager = MemoryManager()
 
-def send_to_n8n(task_id: str, result: str, task_type: str = "general"):
-    """Send task results to n8n webhook"""
+def send_to_n8n(task_id: str, result: str, task_type: str = "general", status: str = "completed", error: str = None):
+    """Send task results to n8n webhook with enhanced functionality"""
+    if not config.N8N_WEBHOOK_URL:
+        print("⚠️ N8N_WEBHOOK_URL not configured, skipping n8n notification")
+        return
+    
+    try:
+        # Enhanced payload with more detailed information
+        payload = {
+            "task_id": task_id,
+            "result": result,
+            "task_type": task_type,
+            "status": status,
+            "timestamp": datetime.now().isoformat(),
+            "source": "autonomous-task-bot",
+            "version": "1.0.0",
+            "metadata": {
+                "agents_used": ["researcher", "planner", "executor", "bi_analyst", "qa_specialist", "reporter"],
+                "memory_enabled": True,
+                "report_saved": True
+            }
+        }
+        
+        # Add error information if present
+        if error:
+            payload["error"] = error
+            payload["status"] = "failed"
+        
+        # Retry logic for better reliability
+        max_retries = 3
+        retry_delay = 1
+        
+        for attempt in range(max_retries):
+            try:
+                response = requests.post(
+                    config.N8N_WEBHOOK_URL, 
+                    json=payload,
+                    timeout=10,
+                    headers={"Content-Type": "application/json"}
+                )
+                
+                if response.status_code == 200:
+                    print(f"✅ Task results sent to n8n successfully (attempt {attempt + 1})")
+                    return True
+                else:
+                    print(f"⚠️ Failed to send to n8n: {response.status_code} - {response.text}")
+                    
+            except requests.exceptions.RequestException as e:
+                print(f"⚠️ Network error sending to n8n (attempt {attempt + 1}): {e}")
+                
+            if attempt < max_retries - 1:
+                time.sleep(retry_delay)
+                retry_delay *= 2  # Exponential backoff
+                
+        print(f"❌ Failed to send to n8n after {max_retries} attempts")
+        return False
+            
+    except Exception as e:
+        print(f"❌ Error sending to n8n: {e}")
+        return False
+
+def send_task_start_to_n8n(task_id: str, prompt: str, task_type: str = "general"):
+    """Send task start notification to n8n"""
     if not config.N8N_WEBHOOK_URL:
         return
     
     try:
         payload = {
             "task_id": task_id,
-            "result": result,
+            "prompt": prompt,
             "task_type": task_type,
+            "status": "started",
             "timestamp": datetime.now().isoformat(),
-            "status": "completed"
+            "source": "autonomous-task-bot",
+            "event_type": "task_started"
         }
         
-        response = requests.post(config.N8N_WEBHOOK_URL, json=payload)
+        response = requests.post(
+            config.N8N_WEBHOOK_URL, 
+            json=payload,
+            timeout=5,
+            headers={"Content-Type": "application/json"}
+        )
+        
         if response.status_code == 200:
-            print(f"✅ Task results sent to n8n successfully")
+            print(f"✅ Task start notification sent to n8n")
         else:
-            print(f"⚠️ Failed to send to n8n: {response.status_code}")
+            print(f"⚠️ Failed to send task start to n8n: {response.status_code}")
             
     except Exception as e:
-        print(f"⚠️ Error sending to n8n: {e}")
+        print(f"⚠️ Error sending task start to n8n: {e}")
 
 def save_report(task_id: str, result: str, task_type: str = "general"):
     """Save report to disk"""
@@ -59,6 +129,9 @@ def run_task(prompt: str, task_type: str = "general") -> Dict[str, Any]:
     
     try:
         print(f"🚀 Starting task {task_id}: {prompt}")
+        
+        # Send task start notification to n8n
+        send_task_start_to_n8n(task_id, prompt, task_type)
         
         # Search for similar tasks in memory
         similar_tasks = memory_manager.search_similar_tasks(prompt, k=3)
@@ -174,7 +247,7 @@ def run_task(prompt: str, task_type: str = "general") -> Dict[str, Any]:
         save_report(task_id, str(result), task_type)
         
         # Send to n8n if configured
-        send_to_n8n(task_id, str(result), task_type)
+        send_to_n8n(task_id, str(result), task_type, "completed")
         
         return {
             "task_id": task_id,
@@ -187,6 +260,9 @@ def run_task(prompt: str, task_type: str = "general") -> Dict[str, Any]:
     except Exception as e:
         error_msg = f"Error: {str(e)}"
         print(f"❌ Task failed: {error_msg}")
+        
+        # Send failure notification to n8n
+        send_to_n8n(task_id, "", task_type, "failed", error_msg)
         
         return {
             "task_id": task_id,

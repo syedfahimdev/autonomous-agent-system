@@ -266,6 +266,46 @@ The project includes a `vercel.json` file with optimal settings:
    docker run -p 8000:8000 -e OPENAI_API_KEY=your_key autonomous-agent-bot
    ```
 
+### Fly.io Deployment
+
+For serverless deployment with persistent storage and auto-scaling:
+
+1. **Install Fly CLI**
+   ```bash
+   # macOS
+   brew install flyctl
+   
+   # Windows
+   powershell -Command "iwr https://fly.io/install.ps1 -useb | iex"
+   
+   # Linux
+   curl -L https://fly.io/install.sh | sh
+   ```
+
+2. **Login and initialize**
+   ```bash
+   fly auth login
+   fly launch
+   ```
+
+3. **Set environment variables**
+   ```bash
+   fly secrets set OPENAI_API_KEY="your-openai-api-key"
+   fly secrets set N8N_WEBHOOK_URL="your-n8n-webhook-url"
+   ```
+
+4. **Deploy**
+   ```bash
+   fly deploy
+   ```
+
+5. **Open your app**
+   ```bash
+   fly open
+   ```
+
+**📖 Detailed Fly.io guide**: See [FLY_DEPLOYMENT.md](FLY_DEPLOYMENT.md) for complete instructions.
+
 ## 🔗 n8n Integration
 
 The autonomous task bot includes comprehensive n8n integration for workflow automation and notifications.

@@ -2,7 +2,7 @@
 #
 # See https://fly.io/docs/reference/configuration/ for information about how to use this file.
 
-app = "autonomous-agent-system"
+app = "autonomous-task-bot"
 primary_region = "iad"
 
 [build]
@@ -11,6 +11,7 @@ primary_region = "iad"
 [env]
   PORT = "8000"
   PYTHONUNBUFFERED = "1"
+  HOST = "0.0.0.0"
 
 [http_service]
   internal_port = 8000
@@ -21,10 +22,10 @@ primary_region = "iad"
   processes = ["app"]
 
 [[http_service.checks]]
-  grace_period = "10s"
-  interval = "30s"
+  grace_period = "30s"
+  interval = "60s"
   method = "GET"
-  timeout = "5s"
+  timeout = "10s"
   path = "/api/health"
 
 [[vm]]
@@ -37,4 +38,4 @@ primary_region = "iad"
   destination = "/app/data"
 
 [processes]
-  app = "uvicorn main:app --host 0.0.0.0 --port 8000" 
+  app = "uvicorn main:app --host 0.0.0.0 --port 8000 --workers 1" 

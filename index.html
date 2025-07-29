@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autonomous Multi-Agent Task Bot</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="static/favicon.svg">
+    <link rel="icon" type="image/x-icon" href="static/favicon.ico">
+    <link rel="apple-touch-icon" href="static/favicon.svg">
+    
+    <link rel="stylesheet" href="static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/marked/4.3.0/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <h1>🤖 Autonomous Multi-Agent Task Bot</h1>
+            <p class="subtitle">Powered by CrewAI, LangChain, and OpenAI</p>
+        </header>
+
+        <div class="main-content">
+            <!-- API Configuration Section -->
+            <section class="config-section">
+                <h2>⚙️ API Configuration</h2>
+                <div class="config-form">
+                    <div class="form-group">
+                        <label for="api_url">Backend API URL:</label>
+                        <input 
+                            type="url" 
+                            id="api_url" 
+                            placeholder="https://your-backend-api.com"
+                            value=""
+                        >
+                        <small>Leave empty to use demo mode (no backend connection)</small>
+                    </div>
+                    <button type="button" class="config-btn" onclick="updateApiConfig()">
+                        <span class="btn-icon">🔧</span>
+                        Update Configuration
+                    </button>
+                </div>
+            </section>
+
+            <!-- Task Input Section -->
+            <section class="task-section">
+                <h2>📝 Submit New Task</h2>
+                <form id="task-form" class="task-form">
+                    <div class="form-group">
+                        <label for="task_prompt">Task Description:</label>
+                        <textarea 
+                            id="task_prompt" 
+                            name="task_prompt" 
+                            placeholder="Describe your task here... (e.g., 'Research the latest trends in AI and create a comprehensive report')"
+                            required
+                        ></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="task_type">Task Type:</label>
+                        <select id="task_type" name="task_type">
+                            <option value="general">General Task</option>
+                            <option value="research">Research</option>
+                            <option value="analysis">Business Analysis</option>
+                            <option value="planning">Strategic Planning</option>
+                            <option value="report">Report Generation</option>
+                        </select>
+                    </div>
+                    
+                    <button type="submit" class="submit-btn">
+                        <span class="btn-icon">🚀</span>
+                        Execute Task
+                    </button>
+                </form>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="results-section" style="display: none;">
+                <h2>📊 Task Results</h2>
+                <div class="result-container">
+                    <div class="result-header">
+                        <span class="status-badge success">✅ Completed</span>
+                        <span class="task-id" id="task-id"></span>
+                        <span class="timestamp" id="result-timestamp"></span>
+                    </div>
+                    <div class="result-content" id="result-content">
+                        <!-- Result will be populated by JavaScript -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Task History Section -->
+            <section class="history-section">
+                <h2>📚 Recent Task History</h2>
+                <div class="history-container" id="history-container">
+                    <p class="no-history">No recent tasks found. Submit a task to see history.</p>
+                </div>
+            </section>
+
+            <!-- System Status Section -->
+            <section class="status-section">
+                <h2>🔧 System Status</h2>
+                <div class="status-grid">
+                    <div class="status-item">
+                        <span class="status-label">Backend API:</span>
+                        <span class="status-value" id="api-status">Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">OpenAI API:</span>
+                        <span class="status-value" id="openai-status">Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">Memory System:</span>
+                        <span class="status-value" id="memory-status">Checking...</span>
+                    </div>
+                    <div class="status-item">
+                        <span class="status-label">n8n Integration:</span>
+                        <span class="status-value" id="n8n-status">Checking...</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+    </div>
+
+    <script>
+        // Global configuration
+        let apiConfig = {
+            baseUrl: '',
+            isDemoMode: true
+        };
+
+        // Demo data for when no backend is connected
+        const demoData = {
+            tasks: [],
+            status: {
+                api_configured: false,
+                openai_configured: false,
+                faiss_configured: false,
+                n8n_configured: false
+            }
+        };
+
+        // Update API configuration
+        function updateApiConfig() {
+            const apiUrl = document.getElementById('api_url').value.trim();
+            apiConfig.baseUrl = apiUrl;
+            apiConfig.isDemoMode = !apiUrl;
+            
+            // Update status
+            document.getElementById('api-status').textContent = 
+                apiConfig.isDemoMode ? '⚠️ Demo Mode' : '✅ Connected';
+            
+            // Check system status
+            checkSystemStatus();
+            
+            // Load task history
+            loadTaskHistory();
+        }
+
+        // Process markdown in results
+        function processMarkdown(content) {
+            // Configure marked options
+            marked.setOptions({
+                breaks: true,
+                gfm: true,
+                highlight: function(code, lang) {
+                    if (lang && hljs.getLanguage(lang)) {
+                        try {
+                            return hljs.highlight(code, { language: lang }).value;
+                        } catch (err) {}
+                    }
+                    return hljs.highlightAuto(code).value;
+                }
+            });
+            
+            // Convert markdown to HTML
+            const htmlContent = marked.parse(content);
+            return `
+                <div class="markdown-content">
+                    ${htmlContent}
+                </div>
+            `;
+        }
+
+        // Check system status
+        async function checkSystemStatus() {
+            if (apiConfig.isDemoMode) {
+                // Demo mode - show demo status
+                document.getElementById('openai-status').textContent = '⚠️ Demo Mode';
+                document.getElementById('memory-status').textContent = '⚠️ Demo Mode';
+                document.getElementById('n8n-status').textContent = '⚠️ Demo Mode';
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiConfig.baseUrl}/api/health`);
+                const data = await response.json();
+                
+                document.getElementById('openai-status').textContent = 
+                    data.openai_configured ? '✅ Connected' : '❌ Not Configured';
+                document.getElementById('memory-status').textContent = 
+                    data.faiss_configured ? '✅ Active' : '⚠️ Limited';
+                document.getElementById('n8n-status').textContent = 
+                    data.n8n_configured ? '✅ Connected' : '❌ Not Configured';
+            } catch (error) {
+                console.error('Error checking system status:', error);
+                document.getElementById('openai-status').textContent = '❌ Connection Failed';
+                document.getElementById('memory-status').textContent = '❌ Connection Failed';
+                document.getElementById('n8n-status').textContent = '❌ Connection Failed';
+            }
+        }
+
+        // Load task history
+        async function loadTaskHistory() {
+            if (apiConfig.isDemoMode) {
+                // Show demo history
+                displayTaskHistory(demoData.tasks);
+                return;
+            }
+
+            try {
+                const response = await fetch(`${apiConfig.baseUrl}/api/tasks?limit=5`);
+                const data = await response.json();
+                displayTaskHistory(data.tasks || []);
+            } catch (error) {
+                console.error('Error loading task history:', error);
+                displayTaskHistory([]);
+            }
+        }
+
+        // Display task history
+        function displayTaskHistory(tasks) {
+            const container = document.getElementById('history-container');
+            
+            if (!tasks || tasks.length === 0) {
+                container.innerHTML = '<p class="no-history">No recent tasks found.</p>';
+                return;
+            }
+
+            const historyHtml = tasks.map(task => `
+                <div class="history-item">
+                    <div class="history-header">
+                        <span class="history-role">${task.role || 'Task'}</span>
+                        <span class="history-time">${task.timestamp || 'Unknown'}</span>
+                    </div>
+                    <div class="history-content">${task.content || 'No content'}</div>
+                </div>
+            `).join('');
+
+            container.innerHTML = historyHtml;
+        }
+
+        // Submit task
+        async function submitTask(event) {
+            event.preventDefault();
+            
+            const taskPrompt = document.getElementById('task_prompt').value.trim();
+            const taskType = document.getElementById('task_type').value;
+            
+            if (!taskPrompt) {
+                alert('Please enter a task description.');
+                return;
+            }
+
+            // Show loading state
+            const submitBtn = document.querySelector('.submit-btn');
+            const originalText = submitBtn.innerHTML;
+            submitBtn.innerHTML = '<span class="btn-icon">⏳</span> Processing...';
+            submitBtn.disabled = true;
+
+            try {
+                if (apiConfig.isDemoMode) {
+                    // Demo mode - simulate task processing
+                    await simulateTaskProcessing(taskPrompt, taskType);
+                } else {
+                    // Real API call
+                    const response = await fetch(`${apiConfig.baseUrl}/api/tasks`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            task_prompt: taskPrompt,
+                            task_type: taskType
+                        })
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    displayResult(result);
+                }
+            } catch (error) {
+                console.error('Error submitting task:', error);
+                displayError(`Failed to submit task: ${error.message}`);
+            } finally {
+                // Reset button state
+                submitBtn.innerHTML = originalText;
+                submitBtn.disabled = false;
+            }
+        }
+
+        // Simulate task processing for demo mode
+        async function simulateTaskProcessing(taskPrompt, taskType) {
+            // Simulate processing time
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Create demo result
+            const demoResult = {
+                status: "completed",
+                result: `# Demo Task Result
+
+This is a **demo result** for the task: "${taskPrompt}"
+
+## Task Type: ${taskType}
+
+### What this would do in a real deployment:
+
+1. **Task Analysis**: The system would analyze your request and break it down into subtasks
+2. **Agent Assignment**: Different AI agents would be assigned based on the task type
+3. **Execution**: Agents would collaborate to complete the task
+4. **Result Generation**: A comprehensive result would be generated and returned
+
+### Example Agent Workflow:
+
+\`\`\`python
+# Example of what happens behind the scenes
+agents = [
+    "Researcher Agent",
+    "Analyst Agent", 
+    "Writer Agent"
+]
+
+for agent in agents:
+    result = agent.process(task)
+    # Process and refine results
+\`\`\`
+
+### To connect to a real backend:
+
+1. Deploy your FastAPI backend to a service like:
+   - **Railway** (railway.app)
+   - **Render** (render.com)
+   - **Fly.io** (fly.io)
+   - **Heroku** (heroku.com)
+
+2. Update the API URL in the configuration section above
+
+3. Your backend should have these endpoints:
+   - \`POST /api/tasks\` - Submit tasks
+   - \`GET /api/tasks\` - Get task history
+   - \`GET /api/health\` - Health check
+
+### Current Status: Demo Mode
+
+This interface is currently running in **demo mode** without a backend connection.`,
+                task_id: `demo-${Date.now()}`,
+                timestamp: new Date().toISOString()
+            };
+
+            // Add to demo history
+            demoData.tasks.unshift({
+                role: 'Demo Task',
+                content: taskPrompt,
+                timestamp: new Date().toISOString()
+            });
+
+            displayResult(demoResult);
+            displayTaskHistory(demoData.tasks);
+        }
+
+        // Display result
+        function displayResult(result) {
+            const resultsSection = document.getElementById('results-section');
+            const resultContent = document.getElementById('result-content');
+            const taskId = document.getElementById('task-id');
+            const timestamp = document.getElementById('result-timestamp');
+
+            // Show results section
+            resultsSection.style.display = 'block';
+
+            // Update metadata
+            taskId.textContent = `ID: ${result.task_id || 'N/A'}`;
+            timestamp.textContent = result.timestamp || new Date().toISOString();
+
+            // Process and display content
+            const processedContent = processMarkdown(result.result || 'No result available');
+            resultContent.innerHTML = processedContent;
+
+            // Apply syntax highlighting
+            resultContent.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Display error
+        function displayError(message) {
+            const resultsSection = document.getElementById('results-section');
+            const resultContent = document.getElementById('result-content');
+            const taskId = document.getElementById('task-id');
+            const timestamp = document.getElementById('result-timestamp');
+
+            // Show results section
+            resultsSection.style.display = 'block';
+
+            // Update metadata
+            taskId.textContent = 'ID: Error';
+            timestamp.textContent = new Date().toISOString();
+
+            // Display error
+            resultContent.innerHTML = `
+                <div class="error-content">
+                    <h3>❌ Error</h3>
+                    <p>${message}</p>
+                </div>
+            `;
+
+            // Scroll to results
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            // Set up form submission
+            document.getElementById('task-form').addEventListener('submit', submitTask);
+            
+            // Auto-resize textarea
+            const textarea = document.getElementById('task_prompt');
+            if (textarea) {
+                textarea.addEventListener('input', function() {
+                    this.style.height = 'auto';
+                    this.style.height = this.scrollHeight + 'px';
+                });
+            }
+
+            // Initialize with demo mode
+            updateApiConfig();
+        });
+    </script>
+</body>
+</html> 

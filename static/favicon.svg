@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Background circle -->
+  <circle cx="16" cy="16" r="15" fill="#2563eb" stroke="#1d4ed8" stroke-width="2"/>
+  
+  <!-- Robot head -->
+  <rect x="8" y="6" width="16" height="20" rx="3" fill="#f8fafc" stroke="#1e293b" stroke-width="1"/>
+  
+  <!-- Eyes -->
+  <circle cx="11" cy="12" r="2" fill="#1e293b"/>
+  <circle cx="21" cy="12" r="2" fill="#1e293b"/>
+  
+  <!-- Eye highlights -->
+  <circle cx="10.5" cy="11.5" r="0.5" fill="#ffffff"/>
+  <circle cx="20.5" cy="11.5" r="0.5" fill="#ffffff"/>
+  
+  <!-- Mouth -->
+  <rect x="12" y="18" width="8" height="2" rx="1" fill="#1e293b"/>
+  
+  <!-- Antenna -->
+  <line x1="16" y1="6" x2="16" y2="2" stroke="#1e293b" stroke-width="2"/>
+  <circle cx="16" cy="2" r="1" fill="#ef4444"/>
+  
+  <!-- Circuit pattern -->
+  <path d="M4 8 L8 8 M4 12 L8 12 M4 16 L8 16" stroke="#64748b" stroke-width="1" opacity="0.6"/>
+  <path d="M24 8 L28 8 M24 12 L28 12 M24 16 L28 16" stroke="#64748b" stroke-width="1" opacity="0.6"/>
+  
+  <!-- AI brain pattern -->
+  <path d="M14 22 L18 22 M14 24 L18 24 M14 26 L18 26" stroke="#3b82f6" stroke-width="1" opacity="0.8"/>
+</svg>
